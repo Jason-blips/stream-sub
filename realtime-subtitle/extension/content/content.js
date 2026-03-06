@@ -6,6 +6,9 @@
   let mediaRecorder = null;
   let stream = null;
   let capturing = false;
+  const CHUNK_MS = 2000; // 每 2 秒发送一次，降低延迟
+  const RECONNECT_MAX = 3;
+  let reconnectCount = 0;
 
   function ensureOverlay() {
     let el = document.getElementById("realtime-subtitle-overlay");
@@ -27,17 +30,19 @@
 
   function stopCapture() {
     capturing = false;
+    reconnectCount = 0;
     if (mediaRecorder && mediaRecorder.state !== "inactive") {
-      mediaRecorder.stop();
+      try { mediaRecorder.stop(); } catch (_) {}
     }
     if (stream) {
       stream.getTracks().forEach((t) => t.stop());
       stream = null;
     }
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.close();
+    if (ws) {
+      ws.onclose = null;
+      if (ws.readyState === WebSocket.OPEN) ws.close();
+      ws = null;
     }
-    ws = null;
     mediaRecorder = null;
   }
 
@@ -69,20 +74,38 @@
     }
 
     capturing = true;
-    ws = new WebSocket(wsUrl);
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ type: "config", targetLang }));
-    };
-    ws.onmessage = (e) => {
-      try {
-        const msg = JSON.parse(e.data);
-        if (msg.type === "subtitle" && msg.translated) {
-          showSubtitle(msg.translated);
+    reconnectCount = 0;
+
+    function connectWs() {
+      ws = new WebSocket(wsUrl);
+      ws.onopen = () => {
+        reconnectCount = 0;
+        ws.send(JSON.stringify({ type: "config", targetLang }));
+      };
+      ws.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.type === "subtitle" && msg.translated) {
+            showSubtitle(msg.translated);
+          } else if (msg.type === "error") {
+            showSubtitle("错误: " + (msg.message || "未知"));
+          }
+        } catch (_) {}
+      };
+      ws.onerror = () => {
+        if (reconnectCount === 0) showSubtitle("连接后端失败，请确认服务已启动");
+      };
+      ws.onclose = () => {
+        if (capturing && stream && reconnectCount < RECONNECT_MAX) {
+          reconnectCount++;
+          setTimeout(connectWs, 1500);
+        } else if (capturing) {
+          stopCapture();
+          showSubtitle("连接已断开");
         }
-      } catch (_) {}
-    };
-    ws.onerror = () => showSubtitle("连接后端失败，请确认服务已启动");
-    ws.onclose = () => stopCapture();
+      };
+    }
+    connectWs();
 
     const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
       ? "audio/webm;codecs=opus"
@@ -102,7 +125,7 @@
       }
     };
 
-    mediaRecorder.start(3000); // 每 3 秒一个 chunk
+    mediaRecorder.start(CHUNK_MS);
     showSubtitle("字幕已开启");
     return true;
   }

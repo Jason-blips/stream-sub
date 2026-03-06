@@ -61,4 +61,24 @@ python run.py
 ## 当前实现
 
 - **STT**：默认 Mock，安装 `openai-whisper` 后设置 `STT_PROVIDER=whisper` 可启用
-- **翻译**：默认使用 googletrans（免费），可切换 DeepL
+- **翻译**：默认 googletrans（免费），可切换 DeepL
+- **延迟**：每 2 秒发送音频 chunk，断线自动重连（最多 3 次）
+
+## 故障排除
+
+| 现象 | 可能原因 | 解决 |
+|------|----------|------|
+| 连接后端失败 | 后端未启动 | 运行 `python run.py` |
+| 未选择共享源 | 用户取消选择 | 重新点击「开始捕获」并选择标签页 |
+| 无字幕 | Mock 模式或网络问题 | 检查后端日志，或启用 Whisper |
+| 扩展无响应 | 页面未加载 content script | 刷新会议页面后重试 |
+
+## WebSocket 协议
+
+**客户端 → 服务端**
+- `{"type":"config","targetLang":"zh"}` 设置目标语言
+- `{"type":"audio","data":"<base64>"}` 发送音频 chunk
+
+**服务端 → 客户端**
+- `{"type":"subtitle","original":"...","translated":"..."}` 字幕
+- `{"type":"error","message":"..."}` 错误
