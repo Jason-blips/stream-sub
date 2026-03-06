@@ -1,9 +1,24 @@
 const CHUNK_MS = 2000;
 const RECONNECT_MAX = 3;
 
+function mixAudioStreams(streamA, streamB) {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const dest = ctx.createMediaStreamDestination();
+  const gainA = ctx.createGain();
+  const gainB = ctx.createGain();
+  gainA.gain.value = 1;
+  gainB.gain.value = 1;
+  const srcA = ctx.createMediaStreamSource(streamA);
+  const srcB = ctx.createMediaStreamSource(streamB);
+  srcA.connect(gainA).connect(dest);
+  srcB.connect(gainB).connect(dest);
+  return dest.stream;
+}
+
 let ws = null;
 let mediaRecorder = null;
 let stream = null;
+let extraStreams = [];
 let capturing = false;
 let selectedSourceId = null;
 let reconnectCount = 0;
@@ -18,10 +33,22 @@ async function loadSources() {
   try {
     const sources = await window.electronAPI.getSources();
     sourceList.innerHTML = "";
-    if (sources.length === 0) {
-      sourceList.innerHTML = '<div style="padding:20px;text-align:center;color:#71717a;">未检测到窗口</div>';
-      return;
-    }
+    const specialSources = [
+      { id: "microphone", name: "麦克风（你说的话）", hint: "本地输入" },
+      { id: "microphone+screen", name: "麦克风 + 整个屏幕（你说的话 + 播放的声音）", hint: "混合" },
+    ];
+    specialSources.forEach((s) => {
+      const div = document.createElement("div");
+      div.className = "source-item";
+      div.dataset.id = s.id;
+      div.innerHTML = `<span class="name">${escapeHtml(s.name)}</span><span class="hint">${s.hint}</span>`;
+      div.onclick = () => {
+        document.querySelectorAll(".source-item").forEach((e) => e.classList.remove("selected"));
+        div.classList.add("selected");
+        selectedSourceId = s.id;
+      };
+      sourceList.appendChild(div);
+    });
     sources.forEach((s) => {
       const div = document.createElement("div");
       div.className = "source-item";
@@ -62,6 +89,8 @@ function stopCapture() {
     stream.getTracks().forEach((t) => t.stop());
     stream = null;
   }
+  extraStreams.forEach((s) => s.getTracks().forEach((t) => t.stop()));
+  extraStreams = [];
   if (ws) {
     ws.onclose = null;
     if (ws.readyState === WebSocket.OPEN) ws.close();
@@ -87,29 +116,40 @@ async function startCapture() {
   }
 
   try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        mandatory: {
-          chromeMediaSource: "desktop",
-          chromeMediaSourceId: selectedSourceId,
-        },
-      },
-      video: {
-        mandatory: {
-          chromeMediaSource: "desktop",
-          chromeMediaSourceId: selectedSourceId,
-        },
-      },
-    });
+    extraStreams = [];
+    if (selectedSourceId === "microphone") {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } else if (selectedSourceId === "microphone+screen") {
+      const sources = await window.electronAPI.getSources();
+      const screenSource = sources.find((s) => s.id.includes("screen"));
+      if (!screenSource) {
+        setStatus("未找到屏幕，请选择「麦克风」或窗口");
+        return;
+      }
+      const [screenStream, micStream] = await Promise.all([
+        navigator.mediaDevices.getUserMedia({
+          audio: { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: screenSource.id } },
+          video: { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: screenSource.id } },
+        }),
+        navigator.mediaDevices.getUserMedia({ audio: true }),
+      ]);
+      stream = mixAudioStreams(screenStream, micStream);
+      extraStreams = [screenStream, micStream];
+    } else {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: selectedSourceId } },
+        video: { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: selectedSourceId } },
+      });
+    }
   } catch (e) {
-    setStatus("无法捕获该窗口。请尝试选择「整个屏幕」，或确保会议窗口未被最小化");
+    setStatus("无法捕获。麦克风需授权；窗口/屏幕请重试");
     return;
   }
 
   const audioTrack = stream.getAudioTracks()[0];
   if (!audioTrack) {
-    setStatus("未捕获到音频。请选择「整个屏幕」重试");
-    stream.getTracks().forEach((t) => t.stop());
+    setStatus("未捕获到音频");
+    if (stream) stream.getTracks().forEach((t) => t.stop());
     return;
   }
 
