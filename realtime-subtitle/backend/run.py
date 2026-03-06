@@ -1,4 +1,7 @@
 """启动后端服务"""
+from dotenv import load_dotenv
+load_dotenv()
+
 import uvicorn
 from app.config import WS_HOST, WS_PORT
 

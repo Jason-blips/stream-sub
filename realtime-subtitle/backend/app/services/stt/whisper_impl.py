@@ -1,5 +1,7 @@
-"""Whisper 实现：本地语音转文字（需安装 openai-whisper 或 faster-whisper）"""
-import io
+"""Whisper 实现：本地语音转文字，支持 webm 格式"""
+import asyncio
+import os
+import tempfile
 from app.services.stt.base import STTService
 
 try:
@@ -21,20 +23,24 @@ class WhisperSTTService(STTService):
 
     async def transcribe(self, audio_bytes: bytes, language: str = "auto") -> str:
         if not WHISPER_AVAILABLE:
-            return "[Whisper 未安装，请 pip install openai-whisper]"
+            return ""
+        if len(audio_bytes) < 100:
+            return ""
         model = self._get_model()
         if model is None:
             return ""
-        # Whisper 需要 wav 格式，假设传入为 raw pcm 或 wav
-        import tempfile
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+        # Whisper 通过 ffmpeg 支持 webm，直接保存为 webm
+        with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as f:
             f.write(audio_bytes)
             path = f.name
         try:
-            import asyncio
             lang = None if language == "auto" else language
             result = await asyncio.to_thread(model.transcribe, path, language=lang)
             return result.get("text", "").strip()
+        except Exception:
+            return ""
         finally:
-            import os
-            os.unlink(path)
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
