@@ -6,140 +6,50 @@
   <title>会议实时字幕</title>
   <style>
     * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      padding: 20px;
-      font-family: "Segoe UI", system-ui, sans-serif;
-      background: #1a1a1e;
-      color: #e4e4e7;
-      min-height: 100vh;
-    }
-    h1 {
-      font-size: 18px;
-      margin: 0 0 20px 0;
-      font-weight: 600;
-    }
-    .section {
-      margin-bottom: 20px;
-    }
-    label {
-      display: block;
-      font-size: 12px;
-      color: #a1a1aa;
-      margin-bottom: 6px;
-    }
-    select, input {
-      width: 100%;
-      padding: 10px 12px;
-      background: #27272a;
-      border: 1px solid #3f3f46;
-      border-radius: 8px;
-      color: #fff;
-      font-size: 14px;
-    }
-    select:focus, input:focus {
-      outline: none;
-      border-color: #6366f1;
-    }
-    .source-list {
-      max-height: 200px;
-      overflow-y: auto;
-      background: #27272a;
-      border: 1px solid #3f3f46;
-      border-radius: 8px;
-      padding: 4px;
-    }
-    .source-item {
-      padding: 12px;
-      margin-bottom: 4px;
-      border-radius: 6px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      transition: background 0.15s;
-    }
+    body { margin: 0; padding: 24px; font-family: "Segoe UI", system-ui, sans-serif; background: #1a1a1e; color: #e4e4e7; min-height: 100vh; }
+    h1 { font-size: 18px; margin: 0 0 8px 0; font-weight: 600; }
+    .sub { font-size: 12px; color: #71717a; margin-bottom: 20px; }
+    .section { margin-bottom: 18px; }
+    label { display: block; font-size: 12px; color: #a1a1aa; margin-bottom: 6px; }
+    select { width: 100%; padding: 12px; background: #27272a; border: 1px solid #3f3f46; border-radius: 8px; color: #fff; font-size: 14px; }
+    select:focus { outline: none; border-color: #6366f1; }
+    .source-list { max-height: 140px; overflow-y: auto; background: #27272a; border: 1px solid #3f3f46; border-radius: 8px; padding: 4px; }
+    .source-item { padding: 10px; margin-bottom: 2px; border-radius: 6px; cursor: pointer; font-size: 13px; }
     .source-item:hover { background: #3f3f46; }
     .source-item.selected { background: #6366f1; color: #fff; }
-    .source-item .name { flex: 1; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .source-item .hint { font-size: 11px; color: #71717a; }
-    .source-item.selected .hint { color: rgba(255,255,255,0.8); }
-    .btn {
-      width: 100%;
-      padding: 14px;
-      border: none;
-      border-radius: 8px;
-      font-size: 15px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    .btn-primary {
-      background: #6366f1;
-      color: #fff;
-    }
+    .btn { width: 100%; padding: 14px; border: none; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; }
+    .btn-primary { background: #6366f1; color: #fff; }
     .btn-primary:hover { background: #4f46e5; }
-    .btn-stop {
-      background: #dc2626;
-      color: #fff;
-    }
-    .btn-stop:hover { background: #b91c1c; }
-    .btn-refresh {
-      margin-top: 8px;
-      background: #3f3f46;
-      color: #a1a1aa;
-      padding: 8px;
-      font-size: 13px;
-    }
-    .btn-refresh:hover { background: #52525b; color: #fff; }
+    .btn-stop { background: #dc2626; color: #fff; }
     .status { font-size: 12px; color: #71717a; margin-top: 8px; }
-    .subtitle-preview {
-      margin-top: 16px;
-      padding: 12px;
-      background: #27272a;
-      border-radius: 8px;
-      min-height: 60px;
-    }
+    .subtitle-preview { margin-top: 16px; padding: 12px; background: #27272a; border-radius: 8px; min-height: 50px; }
     .subtitle-preview label { font-size: 11px; color: #71717a; }
     #subtitleText { font-size: 14px; color: #e4e4e7; margin-top: 6px; min-height: 20px; }
   </style>
 </head>
 <body>
   <h1>会议实时字幕</h1>
+  <p class="sub">麦克风 + 播放窗口，源语言自动检测</p>
 
   <div class="section">
-    <label>选择音频来源（麦克风 / 播放声音 / 混合）</label>
-    <div class="source-list" id="sourceList">
-      <div style="padding:20px;text-align:center;color:#71717a;">加载中...</div>
-    </div>
-    <button class="btn btn-refresh" id="refreshBtn">刷新列表</button>
+    <label>选择正在播放的窗口（如浏览器、播放器）</label>
+    <div class="source-list" id="sourceList">加载中...</div>
   </div>
 
   <div class="section">
-    <label>目标语言</label>
+    <label>字幕显示语言</label>
     <select id="targetLang">
       <option value="zh">中文</option>
       <option value="en">English</option>
       <option value="ja">日本語</option>
       <option value="ko">한국어</option>
-      <option value="es">Español</option>
-      <option value="fr">Français</option>
-      <option value="de">Deutsch</option>
     </select>
-  </div>
-
-  <div class="section">
-    <label>后端地址 (WebSocket) — 端口为 8765</label>
-    <div style="display:flex;gap:8px;">
-      <input type="text" id="wsUrl" value="ws://localhost:8765/ws" placeholder="ws://localhost:8765/ws" style="flex:1;">
-      <button class="btn btn-refresh" id="resetUrl" title="恢复默认">默认</button>
-    </div>
   </div>
 
   <div class="section">
     <button class="btn btn-primary" id="startBtn">开始字幕</button>
     <div class="status" id="status"></div>
-    <div class="subtitle-preview" id="subtitlePreview">
+    <div class="subtitle-preview">
       <label>字幕预览</label>
       <div id="subtitleText">等待字幕...</div>
     </div>

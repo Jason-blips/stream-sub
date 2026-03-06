@@ -52,7 +52,7 @@ class WhisperSTTService(STTService):
         try:
             wav_path = _webm_to_wav(webm_path)
             path_to_use = wav_path if wav_path != webm_path else webm_path
-            lang = None if language == "auto" else language
+            lang = None
             result = await asyncio.to_thread(model.transcribe, path_to_use, language=lang)
             return result.get("text", "").strip()
         except Exception as e:

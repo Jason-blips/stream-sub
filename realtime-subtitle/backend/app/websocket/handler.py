@@ -9,6 +9,14 @@ from app.services.factory import get_stt_service, get_translate_service
 logger = logging.getLogger(__name__)
 
 
+def _is_mostly_english(text: str) -> bool:
+    """粗略判断文本是否主要为英文"""
+    if not text.strip():
+        return False
+    ascii_count = sum(1 for c in text if ord(c) < 128)
+    return ascii_count / max(len(text), 1) > 0.8
+
+
 async def handle_websocket(websocket: WebSocket):
     await websocket.accept()
     stt = get_stt_service()
@@ -48,7 +56,10 @@ async def handle_websocket(websocket: WebSocket):
                     original = await stt.transcribe(audio_bytes)
                     logger.info("STT 结果: %r", original)
                     if original:
-                        translated = await translate.translate(original, target_lang)
+                        if target_lang == "en" and _is_mostly_english(original):
+                            translated = original
+                        else:
+                            translated = await translate.translate(original, target_lang)
                         await websocket.send_json({
                             "type": "subtitle",
                             "original": original,

@@ -17,9 +17,8 @@ class GoogleTranslateService(TranslateService):
         if not text.strip():
             return ""
         if not GOOGLE_AVAILABLE:
-            return f"[googletrans 未安装，请 pip install googletrans==4.0.0-rc1] {text}"
-        src = source_lang if source_lang != "auto" else None
+            return f"[googletrans 未安装] {text}"
         result = await asyncio.to_thread(
-            self._translator.translate, text, dest=target_lang, src=src
+            self._translator.translate, text, dest=target_lang, src=None
         )
         return result.text
