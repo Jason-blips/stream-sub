@@ -7,6 +7,7 @@ python-multipart>=0.0.6
 # 翻译（可选，不装则用 Mock）
 googletrans==4.0.0-rc1
 
-# STT 真实语音识别（二选一安装）
-# pip install openai-whisper   # 本地，需约 1GB 磁盘
-# pip install faster-whisper   # 更轻量
+pydub>=0.25.0
+
+# STT 真实语音识别
+# pip install openai-whisper   # 需 ffmpeg

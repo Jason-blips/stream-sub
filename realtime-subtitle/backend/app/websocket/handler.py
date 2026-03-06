@@ -44,7 +44,9 @@ async def handle_websocket(websocket: WebSocket):
 
             if audio_bytes and len(audio_bytes) > 50:
                 try:
+                    logger.info("收到音频 %d 字节", len(audio_bytes))
                     original = await stt.transcribe(audio_bytes)
+                    logger.info("STT 结果: %r", original)
                     if original:
                         translated = await translate.translate(original, target_lang)
                         await websocket.send_json({
@@ -52,9 +54,15 @@ async def handle_websocket(websocket: WebSocket):
                             "original": original,
                             "translated": translated,
                         })
+                    else:
+                        logger.debug("STT 返回空，可能无语音或需安装 ffmpeg")
                 except Exception as e:
                     logger.exception("处理音频失败: %s", e)
-                    await websocket.send_json({"type": "error", "message": str(e)})
+                    await websocket.send_json({
+                        "type": "subtitle",
+                        "original": "",
+                        "translated": f"错误: {str(e)[:50]}",
+                    })
 
     except Exception as e:
         logger.info("WebSocket 关闭: %s", e)

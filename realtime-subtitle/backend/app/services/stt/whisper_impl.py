@@ -1,14 +1,30 @@
-"""Whisper 实现：本地语音转文字，支持 webm 格式"""
+"""Whisper 实现：本地语音转文字，需 ffmpeg 支持 webm"""
 import asyncio
+import logging
 import os
 import tempfile
 from app.services.stt.base import STTService
+
+logger = logging.getLogger(__name__)
 
 try:
     import whisper
     WHISPER_AVAILABLE = True
 except ImportError:
     WHISPER_AVAILABLE = False
+
+
+def _webm_to_wav(webm_path: str) -> str:
+    """用 pydub 将 webm 转为 wav，Whisper 兼容性更好"""
+    try:
+        from pydub import AudioSegment
+        audio = AudioSegment.from_file(webm_path, format="webm")
+        wav_path = webm_path.replace(".webm", ".wav")
+        audio.export(wav_path, format="wav")
+        return wav_path
+    except Exception as e:
+        logger.warning("pydub 转换失败 %s，尝试直接使用 webm", e)
+        return webm_path
 
 
 class WhisperSTTService(STTService):
@@ -29,18 +45,23 @@ class WhisperSTTService(STTService):
         model = self._get_model()
         if model is None:
             return ""
-        # Whisper 通过 ffmpeg 支持 webm，直接保存为 webm
         with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as f:
             f.write(audio_bytes)
-            path = f.name
+            webm_path = f.name
+        wav_path = None
         try:
+            wav_path = _webm_to_wav(webm_path)
+            path_to_use = wav_path if wav_path != webm_path else webm_path
             lang = None if language == "auto" else language
-            result = await asyncio.to_thread(model.transcribe, path, language=lang)
+            result = await asyncio.to_thread(model.transcribe, path_to_use, language=lang)
             return result.get("text", "").strip()
-        except Exception:
+        except Exception as e:
+            logger.exception("Whisper 转写失败: %s", e)
             return ""
         finally:
-            try:
-                os.unlink(path)
-            except OSError:
-                pass
+            for p in [webm_path, wav_path]:
+                if p and os.path.exists(p):
+                    try:
+                        os.unlink(p)
+                    except OSError:
+                        pass
