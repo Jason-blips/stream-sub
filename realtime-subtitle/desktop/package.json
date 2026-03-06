@@ -1,0 +1,27 @@
+{
+  "name": "realtime-subtitle-desktop",
+  "version": "0.1.0",
+  "description": "会议实时翻译字幕 - 桌面版",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.realtime-subtitle.app",
+    "productName": "会议实时字幕",
+    "directories": { "output": "dist" },
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  }
+}

@@ -7,6 +7,7 @@
 ```
 realtime-subtitle/
 ├── backend/                 # FastAPI 后端
+├── desktop/                 # 桌面版 (Electron)，可打包为 .exe
 │   ├── app/
 │   │   ├── main.py
 │   │   ├── config.py

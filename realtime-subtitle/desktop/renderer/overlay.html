@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      background: transparent;
+      overflow: hidden;
+      font-family: "Segoe UI", system-ui, sans-serif;
+    }
+    #subtitle {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      max-width: 90%;
+      padding: 14px 28px;
+      background: rgba(0, 0, 0, 0.82);
+      color: #fff;
+      font-size: 20px;
+      line-height: 1.5;
+      text-align: center;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      display: none;
+    }
+    #subtitle.visible {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div id="subtitle"></div>
+  <script>
+    const el = document.getElementById("subtitle");
+    let hideTimer = null;
+
+    window.electronAPI.onSubtitle((text) => {
+      el.textContent = text;
+      el.classList.add("visible");
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => el.classList.remove("visible"), 5000);
+    });
+  </script>
+</body>
+</html>

@@ -42,7 +42,7 @@ async def handle_websocket(websocket: WebSocket):
                 except (json.JSONDecodeError, KeyError):
                     pass
 
-            if audio_bytes and len(audio_bytes) > 100:
+            if audio_bytes and len(audio_bytes) > 50:
                 try:
                     original = await stt.transcribe(audio_bytes)
                     if original:
