@@ -8,10 +8,11 @@
     h2 { margin: 0 0 12px 0; font-size: 16px; }
     .row { margin-bottom: 12px; }
     label { display: block; margin-bottom: 4px; font-size: 12px; color: #666; }
-    select, input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+    select, input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
     button { width: 100%; padding: 10px; background: #0078d4; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
     button:hover { background: #106ebe; }
-    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    button.active { background: #c42b1c; }
+    button.active:hover { background: #a82418; }
   </style>
 </head>
 <body>
@@ -23,6 +24,10 @@
       <option value="en">English</option>
       <option value="ja">日本語</option>
     </select>
+  </div>
+  <div class="row">
+    <label>后端地址 (WebSocket)</label>
+    <input type="text" id="wsUrl" placeholder="ws://localhost:8765/ws" value="ws://localhost:8765/ws">
   </div>
   <div class="row">
     <button id="toggleBtn">开始捕获</button>
