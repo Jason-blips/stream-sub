@@ -1,4 +1,5 @@
 """FastAPI 入口，提供 WebSocket 与健康检查"""
+from app.config import STT_PROVIDER
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -17,7 +18,7 @@ app.add_middleware(
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "stt": STT_PROVIDER}
 
 
 @app.websocket("/ws")

@@ -1,5 +1,9 @@
 """应用配置，从环境变量读取"""
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 # WebSocket
 WS_HOST = os.getenv("WS_HOST", "0.0.0.0")
