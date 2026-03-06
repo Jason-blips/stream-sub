@@ -1,4 +1,4 @@
-const CHUNK_MS = 2000;
+const CHUNK_MS = 250;  // 0.25 秒一块
 
 function mixAudioStreams(streamA, streamB) {
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -14,6 +14,8 @@ let stream = null;
 let extraStreams = [];
 let capturing = false;
 let selectedSourceId = null;
+const SUBTITLE_HISTORY = 3;  // 悬浮窗显示最近 N 条
+let subtitleLines = [];
 
 const sourceList = document.getElementById("sourceList");
 const targetLang = document.getElementById("targetLang");
@@ -22,6 +24,12 @@ const statusEl = document.getElementById("status");
 
 function setStatus(msg) {
   statusEl.textContent = msg;
+}
+
+function updateWindowAudioCheckbox() {
+  const cb = document.getElementById("windowAudioOnly");
+  const wrap = cb?.closest(".checkbox-wrap");
+  if (wrap) wrap.style.display = selectedSourceId === "microphone" ? "none" : "flex";
 }
 
 function stopCapture() {
@@ -41,6 +49,7 @@ function stopCapture() {
     ws = null;
   }
   mediaRecorder = null;
+  subtitleLines = [];
   window.electronAPI.hideOverlay();
   document.getElementById("subtitleText").textContent = "等待字幕...";
   startBtn.textContent = "开始字幕";
@@ -60,6 +69,7 @@ async function loadSources() {
       document.querySelectorAll(".source-item").forEach((e) => e.classList.remove("selected"));
       micOnly.classList.add("selected");
       selectedSourceId = "microphone";
+      updateWindowAudioCheckbox();
     };
     sourceList.appendChild(micOnly);
     const screenFirst = sources.find((s) => s.id.includes("screen"));
@@ -72,6 +82,7 @@ async function loadSources() {
         document.querySelectorAll(".source-item").forEach((e) => e.classList.remove("selected"));
         div.classList.add("selected");
         selectedSourceId = screenFirst.id;
+        updateWindowAudioCheckbox();
       };
       sourceList.appendChild(div);
     }
@@ -84,11 +95,13 @@ async function loadSources() {
         document.querySelectorAll(".source-item").forEach((e) => e.classList.remove("selected"));
         div.classList.add("selected");
         selectedSourceId = s.id;
+        updateWindowAudioCheckbox();
       };
       sourceList.appendChild(div);
     });
     if (sourceList.children.length > 0) {
       sourceList.children[0].click();
+      updateWindowAudioCheckbox();
     }
   } catch (e) {
     sourceList.innerHTML = "加载失败";
@@ -105,23 +118,27 @@ async function startCapture() {
     return;
   }
 
+  const windowAudioOnly = document.getElementById("windowAudioOnly")?.checked && selectedSourceId !== "microphone";
   try {
     extraStreams = [];
     if (selectedSourceId === "microphone") {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } else {
-      const [windowStream, micStream] = await Promise.all([
-        navigator.mediaDevices.getUserMedia({
-          audio: { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: selectedSourceId } },
-          video: { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: selectedSourceId } },
-        }),
-        navigator.mediaDevices.getUserMedia({ audio: true }),
-      ]);
-      stream = mixAudioStreams(windowStream, micStream);
-      extraStreams = [windowStream, micStream];
+      const windowStream = await navigator.mediaDevices.getUserMedia({
+        audio: { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: selectedSourceId } },
+        video: { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: selectedSourceId } },
+      });
+      if (windowAudioOnly) {
+        stream = windowStream;
+        extraStreams = [windowStream];
+      } else {
+        const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream = mixAudioStreams(windowStream, micStream);
+        extraStreams = [windowStream, micStream];
+      }
     }
   } catch (e) {
-    setStatus("无法捕获，请选择播放英剧的窗口并允许麦克风");
+    setStatus(windowAudioOnly ? "无法捕获窗口音频，请选择播放窗口并允许共享" : "无法捕获，请选择播放窗口并允许麦克风");
     return;
   }
 
@@ -150,8 +167,11 @@ async function startCapture() {
       try {
         const msg = JSON.parse(e.data);
         if (msg.type === "subtitle" && msg.translated) {
-          window.electronAPI.sendSubtitle(msg.translated);
-          document.getElementById("subtitleText").textContent = msg.translated;
+          subtitleLines.push(msg.translated);
+          if (subtitleLines.length > SUBTITLE_HISTORY) subtitleLines.shift();
+          const display = subtitleLines.join("\n");
+          window.electronAPI.sendSubtitle(display);
+          document.getElementById("subtitleText").textContent = display;
         }
       } catch (_) {}
     };

@@ -29,7 +29,7 @@ def get_translate_service() -> TranslateService:
         return DeepLTranslateService(api_key=DEEPL_API_KEY)
     if TRANSLATE_PROVIDER == "google":
         try:
-            from googletrans import Translator
+            from deep_translator import GoogleTranslator
             return GoogleTranslateService()
         except ImportError:
             return MockTranslateService()

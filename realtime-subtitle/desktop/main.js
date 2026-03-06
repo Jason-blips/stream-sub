@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, desktopCapturer, screen } = require("electron");
 const path = require("path");
+const fs = require("fs");
 
 // 允许桌面捕获权限
 app.on("web-contents-created", (_, contents) => {
@@ -21,9 +22,15 @@ function createMainWindow() {
       nodeIntegration: false,
     },
     title: "会议实时字幕",
-    icon: path.join(__dirname, "icons", "icon.png") || undefined,
+    icon: fs.existsSync(path.join(__dirname, "icons", "icon.png"))
+      ? path.join(__dirname, "icons", "icon.png")
+      : undefined,
   });
   mainWindow.loadFile("renderer/main.html");
+  mainWindow.once("ready-to-show", () => {
+    mainWindow.show();
+    mainWindow.focus();
+  });
   mainWindow.on("closed", () => {
     mainWindow = null;
     if (overlayWindow) {
