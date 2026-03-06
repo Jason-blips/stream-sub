@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>会议实时翻译</title>
+  <style>
+    body { width: 320px; padding: 16px; font-family: system-ui, sans-serif; }
+    h2 { margin: 0 0 12px 0; font-size: 16px; }
+    .row { margin-bottom: 12px; }
+    label { display: block; margin-bottom: 4px; font-size: 12px; color: #666; }
+    select, input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+    button { width: 100%; padding: 10px; background: #0078d4; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+    button:hover { background: #106ebe; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <h2>会议实时翻译字幕</h2>
+  <div class="row">
+    <label>目标语言</label>
+    <select id="targetLang">
+      <option value="zh">中文</option>
+      <option value="en">English</option>
+      <option value="ja">日本語</option>
+    </select>
+  </div>
+  <div class="row">
+    <button id="toggleBtn">开始捕获</button>
+  </div>
+</body>
+<script src="popup.js"></script>
+</html>

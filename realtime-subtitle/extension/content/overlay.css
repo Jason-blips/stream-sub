@@ -1,0 +1,22 @@
+/* 字幕悬浮层样式 */
+#realtime-subtitle-overlay {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 80%;
+  padding: 12px 24px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-size: 18px;
+  font-family: system-ui, sans-serif;
+  border-radius: 8px;
+  text-align: center;
+  z-index: 2147483647;
+  pointer-events: none;
+  display: none;
+}
+
+#realtime-subtitle-overlay.visible {
+  display: block;
+}
