@@ -1,35 +1,21 @@
-const CHUNK_MS = 250;  // 0.25 秒一块
-
-function mixAudioStreams(streamA, streamB) {
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const dest = ctx.createMediaStreamDestination();
-  ctx.createMediaStreamSource(streamA).connect(dest);
-  ctx.createMediaStreamSource(streamB).connect(dest);
-  return dest.stream;
-}
+const CHUNK_MS = 1000;
+const SUBTITLE_LINES = 5;
 
 let ws = null;
 let mediaRecorder = null;
 let stream = null;
 let extraStreams = [];
 let capturing = false;
-let selectedSourceId = null;
-const SUBTITLE_HISTORY = 3;  // 悬浮窗显示最近 N 条
+let mode = "mic";
+let selectedWindowId = null;
 let subtitleLines = [];
 
-const sourceList = document.getElementById("sourceList");
-const targetLang = document.getElementById("targetLang");
 const startBtn = document.getElementById("startBtn");
 const statusEl = document.getElementById("status");
+const windowList = document.getElementById("windowList");
 
 function setStatus(msg) {
-  statusEl.textContent = msg;
-}
-
-function updateWindowAudioCheckbox() {
-  const cb = document.getElementById("windowAudioOnly");
-  const wrap = cb?.closest(".checkbox-wrap");
-  if (wrap) wrap.style.display = selectedSourceId === "microphone" ? "none" : "flex";
+  statusEl.textContent = msg || "";
 }
 
 function stopCapture() {
@@ -50,61 +36,44 @@ function stopCapture() {
   }
   mediaRecorder = null;
   subtitleLines = [];
-  window.electronAPI.hideOverlay();
-  document.getElementById("subtitleText").textContent = "等待字幕...";
+  window.electronAPI?.hideOverlay?.();
+  document.getElementById("subtitleText").textContent = "等待中...";
   startBtn.textContent = "开始字幕";
-  startBtn.className = "btn btn-primary";
+  startBtn.className = "btn-start go";
   setStatus("");
 }
 
-async function loadSources() {
+async function loadWindows() {
   try {
     const sources = await window.electronAPI.getSources();
-    sourceList.innerHTML = "";
-    const micOnly = document.createElement("div");
-    micOnly.className = "source-item";
-    micOnly.dataset.id = "microphone";
-    micOnly.textContent = "仅麦克风（扬声器外放时靠近可拾音）";
-    micOnly.onclick = () => {
-      document.querySelectorAll(".source-item").forEach((e) => e.classList.remove("selected"));
-      micOnly.classList.add("selected");
-      selectedSourceId = "microphone";
-      updateWindowAudioCheckbox();
-    };
-    sourceList.appendChild(micOnly);
-    const screenFirst = sources.find((s) => s.id.includes("screen"));
-    if (screenFirst) {
+    windowList.innerHTML = "";
+    const screen = sources.find((s) => s.id.includes("screen"));
+    if (screen) {
       const div = document.createElement("div");
-      div.className = "source-item";
-      div.dataset.id = screenFirst.id;
+      div.className = "window-item";
+      div.dataset.id = screen.id;
       div.textContent = "整个屏幕";
       div.onclick = () => {
-        document.querySelectorAll(".source-item").forEach((e) => e.classList.remove("selected"));
+        document.querySelectorAll(".window-item").forEach((e) => e.classList.remove("selected"));
         div.classList.add("selected");
-        selectedSourceId = screenFirst.id;
-        updateWindowAudioCheckbox();
+        selectedWindowId = screen.id;
       };
-      sourceList.appendChild(div);
+      windowList.appendChild(div);
     }
     sources.filter((s) => !s.id.includes("screen")).forEach((s) => {
       const div = document.createElement("div");
-      div.className = "source-item";
+      div.className = "window-item";
       div.dataset.id = s.id;
-      div.textContent = s.name.length > 40 ? s.name.slice(0, 40) + "..." : s.name;
+      div.textContent = s.name.length > 50 ? s.name.slice(0, 50) + "..." : s.name;
       div.onclick = () => {
-        document.querySelectorAll(".source-item").forEach((e) => e.classList.remove("selected"));
+        document.querySelectorAll(".window-item").forEach((e) => e.classList.remove("selected"));
         div.classList.add("selected");
-        selectedSourceId = s.id;
-        updateWindowAudioCheckbox();
+        selectedWindowId = s.id;
       };
-      sourceList.appendChild(div);
+      windowList.appendChild(div);
     });
-    if (sourceList.children.length > 0) {
-      sourceList.children[0].click();
-      updateWindowAudioCheckbox();
-    }
   } catch (e) {
-    sourceList.innerHTML = "加载失败";
+    windowList.innerHTML = "加载失败";
   }
 }
 
@@ -113,50 +82,44 @@ async function startCapture() {
     stopCapture();
     return;
   }
-  if (!selectedSourceId) {
-    setStatus("请先选择播放窗口");
-    return;
-  }
 
-  const windowAudioOnly = document.getElementById("windowAudioOnly")?.checked && selectedSourceId !== "microphone";
   try {
     extraStreams = [];
-    if (selectedSourceId === "microphone") {
+    if (mode === "mic") {
+      setStatus("正在请求麦克风权限...");
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } else {
-      const windowStream = await navigator.mediaDevices.getUserMedia({
-        audio: { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: selectedSourceId } },
-        video: { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: selectedSourceId } },
-      });
-      if (windowAudioOnly) {
-        stream = windowStream;
-        extraStreams = [windowStream];
-      } else {
-        const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream = mixAudioStreams(windowStream, micStream);
-        extraStreams = [windowStream, micStream];
+      if (!selectedWindowId) {
+        setStatus("请先选择一个播放窗口");
+        return;
       }
+      setStatus("正在请求窗口共享...");
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: selectedWindowId } },
+        video: { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: selectedWindowId } },
+      });
+      extraStreams = [stream];
     }
   } catch (e) {
-    setStatus(windowAudioOnly ? "无法捕获窗口音频，请选择播放窗口并允许共享" : "无法捕获，请选择播放窗口并允许麦克风");
+    setStatus(mode === "mic" ? "需要麦克风权限，请允许后重试" : "无法捕获窗口音频，请选择窗口并允许共享");
     return;
   }
 
   if (!stream.getAudioTracks()[0]) {
-    setStatus("未捕获到音频");
+    setStatus("未获取到音频");
     if (stream) stream.getTracks().forEach((t) => t.stop());
     return;
   }
 
   capturing = true;
-  window.electronAPI.showOverlay();
+  window.electronAPI?.showOverlay?.();
   startBtn.textContent = "停止字幕";
-  startBtn.className = "btn btn-stop";
+  startBtn.className = "btn-start stop";
   setStatus("字幕已开启");
   document.getElementById("subtitleText").textContent = "正在接收...";
 
   const wsUrl = "ws://localhost:8765/ws";
-  const lang = targetLang.value;
+  const lang = document.getElementById("targetLang")?.value || "zh";
 
   function connectWs() {
     ws = new WebSocket(wsUrl);
@@ -168,16 +131,16 @@ async function startCapture() {
         const msg = JSON.parse(e.data);
         if (msg.type === "subtitle" && msg.translated) {
           subtitleLines.push(msg.translated);
-          if (subtitleLines.length > SUBTITLE_HISTORY) subtitleLines.shift();
+          if (subtitleLines.length > SUBTITLE_LINES) subtitleLines.shift();
           const display = subtitleLines.join("\n");
-          window.electronAPI.sendSubtitle(display);
+          window.electronAPI?.sendSubtitle?.(display);
           document.getElementById("subtitleText").textContent = display;
         }
       } catch (_) {}
     };
-    ws.onerror = () => setStatus("连接后端失败，请先启动 backend");
+    ws.onerror = () => setStatus("连接失败，请先启动后端 (python run.py)");
     ws.onclose = () => {
-      if (capturing && stream) setTimeout(connectWs, 1500);
+      if (capturing && stream) setTimeout(connectWs, 2000);
       else if (capturing) {
         stopCapture();
         setStatus("连接已断开");
@@ -201,8 +164,22 @@ async function startCapture() {
   mediaRecorder.start(CHUNK_MS);
 }
 
-startBtn.onclick = () => startCapture();
-window.electronAPI.onSubtitlePreview?.((text) => {
-  document.getElementById("subtitleText").textContent = text || "等待字幕...";
+document.querySelectorAll(".mode-btn").forEach((btn) => {
+  btn.onclick = () => {
+    document.querySelectorAll(".mode-btn").forEach((b) => b.classList.remove("selected"));
+    btn.classList.add("selected");
+    mode = btn.dataset.mode;
+    windowList.classList.toggle("visible", mode === "window");
+    if (mode === "window") loadWindows();
+    selectedWindowId = null;
+  };
 });
-loadSources();
+
+startBtn.onclick = () => startCapture();
+
+window.electronAPI?.onSubtitlePreview?.((text) => {
+  document.getElementById("subtitleText").textContent = text || "等待中...";
+});
+
+windowList.classList.toggle("visible", mode === "window");
+if (mode === "window") loadWindows();

@@ -28,11 +28,11 @@
   </style>
 </head>
 <body>
-  <div id="subtitle"></div>
+  <div id="subtitle">字幕将显示在这里</div>
   <script>
     const el = document.getElementById("subtitle");
     window.electronAPI.onSubtitle((text) => {
-      el.textContent = text || "";
+      el.textContent = (text && text.trim()) ? text : "字幕将显示在这里";
     });
   </script>
 </body>

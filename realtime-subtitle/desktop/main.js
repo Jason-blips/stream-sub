@@ -64,6 +64,7 @@ function createOverlayWindow() {
   overlayWindow.setIgnoreMouseEvents(true, { forward: true });
   overlayWindow.loadFile("renderer/overlay.html");
   overlayWindow.on("closed", () => { overlayWindow = null; });
+  overlayWindow.once("ready-to-show", () => overlayWindow.show());
   return overlayWindow;
 }
 
