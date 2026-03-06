@@ -52,6 +52,16 @@ async function loadSources() {
   try {
     const sources = await window.electronAPI.getSources();
     sourceList.innerHTML = "";
+    const micOnly = document.createElement("div");
+    micOnly.className = "source-item";
+    micOnly.dataset.id = "microphone";
+    micOnly.textContent = "仅麦克风（扬声器外放时靠近可拾音）";
+    micOnly.onclick = () => {
+      document.querySelectorAll(".source-item").forEach((e) => e.classList.remove("selected"));
+      micOnly.classList.add("selected");
+      selectedSourceId = "microphone";
+    };
+    sourceList.appendChild(micOnly);
     const screenFirst = sources.find((s) => s.id.includes("screen"));
     if (screenFirst) {
       const div = document.createElement("div");
@@ -97,15 +107,19 @@ async function startCapture() {
 
   try {
     extraStreams = [];
-    const [windowStream, micStream] = await Promise.all([
-      navigator.mediaDevices.getUserMedia({
-        audio: { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: selectedSourceId } },
-        video: { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: selectedSourceId } },
-      }),
-      navigator.mediaDevices.getUserMedia({ audio: true }),
-    ]);
-    stream = mixAudioStreams(windowStream, micStream);
-    extraStreams = [windowStream, micStream];
+    if (selectedSourceId === "microphone") {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } else {
+      const [windowStream, micStream] = await Promise.all([
+        navigator.mediaDevices.getUserMedia({
+          audio: { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: selectedSourceId } },
+          video: { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: selectedSourceId } },
+        }),
+        navigator.mediaDevices.getUserMedia({ audio: true }),
+      ]);
+      stream = mixAudioStreams(windowStream, micStream);
+      extraStreams = [windowStream, micStream];
+    }
   } catch (e) {
     setStatus("无法捕获，请选择播放英剧的窗口并允许麦克风");
     return;

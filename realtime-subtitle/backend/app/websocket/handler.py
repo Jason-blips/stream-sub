@@ -66,7 +66,7 @@ async def handle_websocket(websocket: WebSocket):
                             "translated": translated,
                         })
                     else:
-                        logger.debug("STT 返回空，可能无语音或需安装 ffmpeg")
+                        logger.info("STT 返回空（音频 %d 字节），可能无语音或窗口无音频权限", len(audio_bytes))
                 except Exception as e:
                     logger.exception("处理音频失败: %s", e)
                     await websocket.send_json({
